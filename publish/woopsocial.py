@@ -492,7 +492,14 @@ class WoopSocialPublisher:
         scheduled_for: str = "",
         overrides: dict[str, dict] | None = None,
         on_media: Callable[[str], None] | None = None,
+        account_ids: list[str] | None = None,
     ) -> FanOutResult:
+        """Post one clip to the connected accounts of `platforms`.
+
+        `account_ids` narrows that to the named WoopSocial accounts. With
+        several accounts on one platform (a TikTok per channel), leaving it
+        out posts the clip to every one of them.
+        """
         if not self.project_id:
             raise NotConnected(
                 "No WoopSocial project is set up yet. Open Manage Social Accounts "
@@ -512,6 +519,14 @@ class WoopSocialPublisher:
                 "None of those platforms are connected to WoopSocial yet. "
                 "Open Manage Social Accounts to connect them."
             )
+        chosen = {str(a).strip() for a in (account_ids or []) if str(a).strip()}
+        if chosen:
+            accounts = [a for a in accounts if str(a.get("id") or "") in chosen]
+            if not accounts:
+                raise NotConnected(
+                    "None of the chosen accounts is connected to WoopSocial on those "
+                    "platforms. Check Manage Social Accounts."
+                )
 
         media_id = self.client.upload_media(video, self.project_id)
         if on_media is not None:
