@@ -1,0 +1,336 @@
+{
+  "name": "ClipsKitty - Publicar reels (YouTube + TikTok)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 12,14,16,18,20 * * *"
+            }
+          ]
+        }
+      },
+      "name": "5 al dia (12-20h)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://127.0.0.1:8765/automation/watches",
+        "options": {}
+      },
+      "name": "Kitty - Canales vigilados",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://127.0.0.1:8765/videos",
+        "options": {}
+      },
+      "name": "Kitty - Videos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        300
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// CONFIGURACIÓN: un bloque por canal de salida. Para añadir un canal nuevo, copia el bloque\n// con su canal de YouTube (id UC... conectado en ClipsKitty), su cuenta de TikTok en WoopSocial\n// y sus canales fuente (id UC... del canal vigilado en ClipsKitty: 'nombre que sale en el título').\nconst CANALES = [\n  {\n    nombre: 'Clippendo',\n    youtube_channel_id: 'UCEQOoBRLPLdM61n6BgZ4KAA',\n    tiktok_account_id: '',\n    fuentes: {\n      'UCaY_-ksFSQtTGk0y1HA_3YQ': 'Ibai',\n      'UCyQqzYXQBUWgBTn4pw_fFSQ': 'AuronPlay',\n      'UCXazgXDIYyWH-yXLAkcrFxw': 'Rubius',\n      'UCCEmjNPpJYhGDgaEqeeA4HA': 'TheGrefg',\n      'UC06rPIABrthG0hwLTVhINLA': 'ElMariana',\n      'UCKvoBRFqMNqvuSvFBiNadgw': 'IlloJuan',\n      'UC9c4rND1mNP-XrWQjbFxp8g': 'ElXokas',\n      'UCOBtOqxsioUI-fFykO2I4BQ': 'Peereira',\n      'UCdhcvooVFqcc2eQUwM38J3Q': 'Carola',\n      'UC1Bb0DVSgXLKuLbenbpkb8g': 'Agustin51',\n      'UCdvyCPDTkkfd4MwqD7ZkGgg': 'Juan Guarnizo',\n      'UCgTOIiEgjm58xLjHvDjmgdA': 'Spreen',\n      'UCam8T03EOFBsNdR0thrFHdQ': 'Vegetta777',\n      'UC4LHNX8d8RqnDX0OezgmCTg': 'Willyrex',\n      'UCqJ5zFEED1hWs0KNQCQuYdQ': 'Mikecrack',\n      'UCW3bX8K5LuQHw8cKc3U8iUg': 'Rivers',\n      'UCdgKwvFibviy0AzNJCxOQLQ': 'AriGameplays',\n      'UC_8NknAFiyhOUaZqHR3lq3Q': 'Quackity',\n      'UCjmHiHCOYEUNMdJujiBQOqQ': 'ElDed',\n      'UCG8eSYvOQUpb9HM8zU5d6xg': 'Robleis',\n      'UCh715KhLM7vbOwozSXLWI_w': 'Alexby11',\n      'UCvZ0P9-EmGz6SFUuFiZPXKw': 'Coscu',\n      'UCiivq2F50ddJ7BkBGILuTKQ': 'Davoo Xeneize',\n      'UCJmMn2PUwpU3TXYZB4i_HuA': 'Invictor',\n      'UCI2FmVp--YL8d7iVFt8mmxg': 'ElTrollino',\n      'UCl8bYBm0XAP23mReE11IBOA': 'YoSoyPlex',\n      'UCi7TVXyvrIwqeS9tfYD8UDA': 'DjMaRiiO',\n      'UC7QiWlK7a7RePg3krLeBK0w': 'Lolito',\n      'UCHkh8YFg0l4tkY6_zvzdd5w': 'Luzu',\n      'UCEg_iK8FKwZfpRMn4-AnnnQ': 'Westcol'\n    },\n  },\n];\nconst DIAS_MAX = 7; // solo vídeos procesados en los últimos 7 días\n\nconst creadorACanal = {};\nfor (const w of $('Kitty - Canales vigilados').all()) {\n  if (w.json.creator && w.json.creator.id != null) creadorACanal[w.json.creator.id] = w.json.channel_key;\n}\nconst limite = Date.now() - DIAS_MAX * 864e5;\nconst out = [];\nfor (const item of $input.all()) {\n  const v = item.json;\n  if (!v.video_id || String(v.video_id).startsWith('local_')) continue; // VODs locales fuera\n  if (v.status !== 'done') continue;\n  if (Date.parse(v.updated_at || v.created_at || 0) < limite) continue;\n  const key = String(v.channel_id || '').startsWith('UC') ? v.channel_id : creadorACanal[v.creator_id];\n  const c = CANALES.findIndex(cn => cn.fuentes[key]);\n  if (c < 0) continue;\n  out.push({ json: {\n    video_id: v.video_id, video_titulo: v.title, video_fecha: v.created_at,\n    canal: CANALES[c].nombre, youtube_channel_id: CANALES[c].youtube_channel_id,\n    tiktok_account_id: CANALES[c].tiktok_account_id, streamer: CANALES[c].fuentes[key],\n  } });\n}\nreturn out;"
+      },
+      "name": "Videos de los canales",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://127.0.0.1:8765/videos/{{ encodeURIComponent($json.video_id) }}/clips",
+        "options": {}
+      },
+      "name": "Kitty - Clips",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Los 2 mejores clips de cada vídeo, solo si tienen 80 puntos o más.\nconst MIN_PUNTOS = 80, POR_VIDEO = 2;\nconst videos = {};\nfor (const v of $('Videos de los canales').all()) videos[v.json.video_id] = v.json;\nconst porVideo = {};\nfor (const item of $input.all()) {\n  const c = item.json;\n  if (!videos[c.video_id] || !c.path || !(c.score >= MIN_PUNTOS)) continue;\n  (porVideo[c.video_id] = porVideo[c.video_id] || []).push(c);\n}\nconst out = [];\nfor (const [vid, clips] of Object.entries(porVideo)) {\n  clips.sort((a, b) => b.score - a.score);\n  for (const c of clips.slice(0, POR_VIDEO)) out.push({ json: { ...videos[vid], clip: c } });\n}\nreturn out;"
+      },
+      "name": "Top 2 por video (80+)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://127.0.0.1:8765/clips/{{ $json.clip.id }}/posts",
+        "options": {}
+      },
+      "name": "Kitty - Publicaciones",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Por cada canal de salida, el siguiente clip pendiente: vídeo más reciente primero, luego puntuación.\nconst elegidos = {};\nfor (const e of $('Top 2 por video (80+)').all()) elegidos[e.json.clip.id] = e.json;\nconst porCanal = {};\nfor (const p of $input.all()) {\n  const e = elegidos[p.json.clip_id];\n  if (!e) continue;\n  // Cualquier publicación previa (también fallida) cuenta: no se reintenta sola.\n  const hechas = new Set((p.json.posts || []).map(x => x.platform));\n  const falta_youtube = !hechas.has('youtube'), falta_tiktok = !hechas.has('tiktok');\n  if (falta_youtube || falta_tiktok) (porCanal[e.canal] = porCanal[e.canal] || []).push({ e, falta_youtube, falta_tiktok });\n}\nconst out = [];\nfor (const lista of Object.values(porCanal)) {\n  lista.sort((a, b) => String(b.e.video_fecha).localeCompare(String(a.e.video_fecha)) || (b.e.clip.score - a.e.clip.score));\n  const { e, falta_youtube, falta_tiktok } = lista[0];\n  const clip = e.clip;\n  const tags = [];\n  let largo = 0;\n  for (const t of (clip.hashtags || [])) {\n    const tag = String(t).replace(/^#/, '').trim();\n    if (!tag || largo + tag.length + 1 > 480) continue;\n    tags.push(tag); largo += tag.length + 1;\n  }\n  const descripcion = String(clip.description || '').slice(0, 4000);\n  const hashtags = tags.map(t => '#' + t.replace(/\\s+/g, '')).join(' ');\n  out.push({ json: {\n    canal: e.canal, youtube_channel_id: e.youtube_channel_id, tiktok_account_id: e.tiktok_account_id,\n    clip_id: clip.id, score: clip.score, video_id: e.video_id, streamer: e.streamer,\n    titulo: `${e.streamer} - ${clip.title || clip.hook || 'Clip'}`.slice(0, 100),\n    descripcion, tags, descripcion_youtube: [descripcion, hashtags].filter(Boolean).join('\\n\\n'),\n    falta_youtube, falta_tiktok, pendientes_en_cola: lista.length,\n  } });\n}\nreturn out;"
+      },
+      "name": "Elegir siguiente clip",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "falta_youtube",
+              "leftValue": "={{ $json.falta_youtube }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Falta YouTube?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1620,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "falta_tiktok",
+              "leftValue": "={{ $json.falta_tiktok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Falta TikTok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1620,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://127.0.0.1:8765/clips/{{ $json.clip_id }}/publish",
+        "options": {},
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: $json.titulo, description: $json.descripcion_youtube, tags: $json.tags, privacy: 'public', made_for_kids: false, channel_id: $json.youtube_channel_id || undefined }) }}"
+      },
+      "name": "YouTube - Publicar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1860,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://127.0.0.1:8765/woopsocial/clips/{{ $json.clip_id }}/publish",
+        "options": {},
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ platforms: ['tiktok'], title: $json.titulo, description: $json.descripcion, tags: $json.tags, account_ids: $json.tiktok_account_id ? [$json.tiktok_account_id] : undefined }) }}"
+      },
+      "name": "TikTok - Publicar (WoopSocial)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1860,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "5 al dia (12-20h)": {
+      "main": [
+        [
+          {
+            "node": "Kitty - Canales vigilados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kitty - Canales vigilados": {
+      "main": [
+        [
+          {
+            "node": "Kitty - Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kitty - Videos": {
+      "main": [
+        [
+          {
+            "node": "Videos de los canales",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Videos de los canales": {
+      "main": [
+        [
+          {
+            "node": "Kitty - Clips",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kitty - Clips": {
+      "main": [
+        [
+          {
+            "node": "Top 2 por video (80+)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Top 2 por video (80+)": {
+      "main": [
+        [
+          {
+            "node": "Kitty - Publicaciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kitty - Publicaciones": {
+      "main": [
+        [
+          {
+            "node": "Elegir siguiente clip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Elegir siguiente clip": {
+      "main": [
+        [
+          {
+            "node": "Falta YouTube?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Falta TikTok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Falta YouTube?": {
+      "main": [
+        [
+          {
+            "node": "YouTube - Publicar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Falta TikTok?": {
+      "main": [
+        [
+          {
+            "node": "TikTok - Publicar (WoopSocial)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Amsterdam"
+  }
+}
