@@ -72,6 +72,9 @@ class PublishIn(BaseModel):
     tags: list[str] = []
     overrides: dict[str, dict] = {}
     scheduled_date: str = ""
+    # Post only to these WoopSocial accounts (ids from /woopsocial/connections).
+    # Empty: every connected account on the chosen platforms, as before.
+    account_ids: list[str] = []
 
 
 def install(app, *, config, db, data_dir, publish_worker=None) -> None:
@@ -264,6 +267,7 @@ def install(app, *, config, db, data_dir, publish_worker=None) -> None:
                     text=text,
                     scheduled_for=when,
                     overrides=body.overrides,
+                    account_ids=body.account_ids,
                 )
             except PublishError as e:
                 raise _fail(e) from e
