@@ -364,6 +364,46 @@ def test_nothing_connected_at_all_is_refused_before_uploading(tmp_path: Path):
     assert client.uploaded == [], "must not upload a clip it cannot post"
 
 
+def test_chosen_accounts_narrow_a_platform_with_several(tmp_path: Path):
+    """One TikTok per channel: a clip goes to the account asked for, not all."""
+    clip = tmp_path / "c.mp4"
+    clip.write_bytes(b"v")
+    client = _FakeClient([
+        {"platform": "TIKTOK", "id": "tt-a"},
+        {"platform": "TIKTOK", "id": "tt-b"},
+        {"platform": "YOUTUBE", "id": "yt-a"},
+    ])
+
+    WoopSocialPublisher(client, "proj").start(
+        clip, platforms=["tiktok"], title="T", text="b", account_ids=["tt-b"]
+    )
+
+    sent = [c["socialAccountId"] for c in client.posted[0]["socialAccounts"]]
+    assert sent == ["tt-b"]
+
+
+def test_without_chosen_accounts_every_account_on_the_platform_is_used(tmp_path: Path):
+    clip = tmp_path / "c.mp4"
+    clip.write_bytes(b"v")
+    client = _FakeClient([{"platform": "TIKTOK", "id": "tt-a"}, {"platform": "TIKTOK", "id": "tt-b"}])
+
+    WoopSocialPublisher(client, "proj").start(clip, platforms=["tiktok"], title="T", text="b")
+
+    sent = sorted(c["socialAccountId"] for c in client.posted[0]["socialAccounts"])
+    assert sent == ["tt-a", "tt-b"]
+
+
+def test_a_chosen_account_that_is_not_connected_is_refused_before_uploading(tmp_path: Path):
+    clip = tmp_path / "c.mp4"
+    clip.write_bytes(b"v")
+    client = _FakeClient([{"platform": "TIKTOK", "id": "tt-a"}])
+    with pytest.raises(NotConnected):
+        WoopSocialPublisher(client, "proj").start(
+            clip, platforms=["tiktok"], title="T", text="b", account_ids=["gone"]
+        )
+    assert client.uploaded == [], "must not upload a clip it cannot post"
+
+
 def test_no_project_is_refused(tmp_path: Path):
     clip = tmp_path / "c.mp4"
     clip.write_bytes(b"v")

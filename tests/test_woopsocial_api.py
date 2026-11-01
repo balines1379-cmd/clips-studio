@@ -205,6 +205,35 @@ def test_hashtags_are_appended_to_the_caption(client, monkeypatch, tmp_path):
     assert "Body" in seen["text"]
 
 
+def test_chosen_accounts_reach_the_publisher(client, monkeypatch, tmp_path):
+    _enable(client)
+    clip_id = _a_clip(client, tmp_path)
+    monkeypatch.setattr(service, "has_key", lambda _p: True)
+    monkeypatch.setattr(
+        service, "make_client", lambda _p: type("C", (), {"projects": lambda self: [{"id": "proj1"}]})()
+    )
+
+    from publish import uploadpost as up
+    from publish import woopsocial as ws
+
+    seen = {}
+
+    def fake_start(self, video, **kwargs):
+        seen.update(kwargs)
+        return up.FanOutResult(request_id="p", outcomes=[])
+
+    monkeypatch.setattr(ws.WoopSocialPublisher, "start", fake_start)
+
+    client.post(
+        f"/woopsocial/clips/{clip_id}/publish",
+        json={"platforms": ["tiktok"], "title": "T", "account_ids": ["tt-b"]},
+    )
+    assert seen["account_ids"] == ["tt-b"]
+
+    client.post(f"/woopsocial/clips/{clip_id}/publish", json={"platforms": ["tiktok"], "title": "T"})
+    assert seen["account_ids"] == [], "left out, every account on the platform is used as before"
+
+
 def test_publishing_needs_a_title_and_a_platform(client, monkeypatch, tmp_path):
     _enable(client)
     clip_id = _a_clip(client, tmp_path)
